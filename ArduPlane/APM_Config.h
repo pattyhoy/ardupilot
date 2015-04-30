@@ -20,4 +20,4 @@
  *  // 2. HIL_MODE_SENSORS: full sensor simulation
  *
  */
-
+#define GPS_PROTOCOL  GPS_PROTOCOL_NONE
