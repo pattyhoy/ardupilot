@@ -21,3 +21,7 @@
  *
  */
 
+#define GPS_PROTOCOL  GPS_PROTOCOL_NONE
+
+#define CAMERA DISABLED
+#define MOUNT DISABLED
