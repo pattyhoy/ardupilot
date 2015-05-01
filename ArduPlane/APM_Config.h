@@ -23,5 +23,7 @@
 
 #define GPS_PROTOCOL  GPS_PROTOCOL_NONE
 
-#define CAMERA DISABLED
-#define MOUNT DISABLED
+#define CAMERA              DISABLED
+#define MOUNT               DISABLED
+#define CLI_ENABLED         DISABLED
+#define GEOFENCE_ENABLED    DISABLED
