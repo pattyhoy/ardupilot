@@ -1,6 +1,5 @@
 // -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*-
-
-//****************************************************************
+f//****************************************************************
 // Function that controls aileron/rudder, elevator, rudder (if 4 channel control) and throttle to produce desired attitude and airspeed.
 //****************************************************************
 
@@ -82,9 +81,18 @@ static void stabilize_roll(float speed_scaler)
     if (control_mode == STABILIZE && channel_roll->control_in != 0) {
         disable_integrator = true;
     }
-    channel_roll->servo_out = rollController.get_servo_out(nav_roll_cd - ahrs.roll_sensor, 
+    
+////////////////////////////////// I ADDED THIS CODE /////////////////////////////////////////
+    if(control_mode != HOVER_PID_FINISH && control_mode != HOVER_PID_START){
+    	channel_roll->servo_out = rollController.get_servo_out(nav_roll_cd - ahrs.roll_sensor,
                                                            speed_scaler, 
                                                            disable_integrator);
+    } else {
+    	
+    	channel_roll->servo_out = rollController.get_servo_out(roll_error_centdeg, speed_scaler, disable_integrator);
+    }
+///////////////////////////////////////////////////////////////////////////////////////////////
+    
 }
 
 /*
@@ -99,9 +107,26 @@ static void stabilize_pitch(float speed_scaler)
     if (control_mode == STABILIZE && channel_pitch->control_in != 0) {
         disable_integrator = true;
     }
-    channel_pitch->servo_out = pitchController.get_servo_out(demanded_pitch - ahrs.pitch_sensor, 
-                                                             speed_scaler, 
-                                                             disable_integrator);
+    
+/////////////////////////////////// I ADDED THIS CODE /////////////////////////////////////////
+    if(control_mode != HOVER_PID_FINISH && control_mode != HOVER_PID_START){
+    	//if its not in a new mode then use normal code
+        channel_pitch->servo_out = pitchController.get_servo_out(demanded_pitch - ahrs.pitch_sensor, 
+                                                                 speed_scaler, 
+                                                                 disable_integrator);
+    } else {//if in HOVER_PID_X mode
+    	
+    	channel_pitch->servo_out = pitchController.get_servo_out(pitch_error_centdeg, speed_scaler, disable_integrator);
+    	// I MAY NEED TO INCREASE ROLL_ERROR_CENTDEG with a feed forward gain  g.kff_throttle_to_pitch as done above. 
+    	// i.e. add on throttle*gain to pitch required. why is this done normally?
+    }
+    
+ //////////////////////////////////////////////////////////////////////////////////////////////
+ 
+    
+
+    
+    
 }
 
 /*
@@ -194,7 +219,7 @@ static void stabilize_stick_mixing_fbw()
  */
 static void stabilize_yaw(float speed_scaler)
 {
-    bool ground_steering = (channel_roll->control_in == 0 && fabsf(relative_altitude()) < g.ground_steer_alt);
+    bool ground_steering = (channel_roll->control_in == 0 && fabsf(relative_altitude()) < g.ground_steer_alt && control_mode != HOVER_PID_FINISH && control_mode != HOVER_PID_START);
 
     if (steer_state.hold_course_cd != -1 && ground_steering) {
         calc_nav_yaw_course();
@@ -325,6 +350,35 @@ static void stabilize()
         if (g.stick_mixing == STICK_MIXING_FBW && control_mode != STABILIZE) {
             stabilize_stick_mixing_fbw();
         }
+        
+ 
+////////////////////////////////////// I ADDED THIS CODE ////////////////////////
+        // Not sure about all this yaw hold business. I've removed it from qcommand and replaced it with yaw = 0
+		hover_yaw_hold = ahrs.yaw; 
+		hover_yaw_hold_deg = hover_yaw_hold*(180/PI); 
+		hover_yaw_hold_cd = hover_yaw_hold_deg
+				//SHOULD EULER ANGLES BE IN DEG/RAD OR CENTIDEG??
+		qcommand.from_euler(nav_roll_cd*(PI/180), nav_pitch_cd*(PI/180), 0); // yaw should be zero. add a variable to neaten this up
+		 //Inputs to quaternion from eulers should be in radians?? Ive changed this
+		
+		qerr = qcurrent.qerror(qcommand);
+		//input into qerror?
+		
+	// Convert quaternion error back to euler angles (rad)
+		qerr.to_euler(_roll_error, _pitch_error, _yaw_error);
+	// Convert from rad to deg
+		roll_error_deg = roll_error*(180/PI); 
+		pitch_error_deg = pitch_error*(180/PI); 
+		yaw_error_deg = yaw_error*(180/PI);
+	// Convert from deg to centidegrees
+		roll_error_centdeg = int32_t (roll_error_deg*100); 
+		pitch_error_centdeg = int32_t (pitch_error_deg*100); 
+		yaw_error_centdeg = int32_t (yaw_error_deg*100); 
+        
+        
+/////////////////////////////////////////////////////////////////////////////////
+        
+        
         stabilize_roll(speed_scaler);
         stabilize_pitch(speed_scaler);
         if (g.stick_mixing == STICK_MIXING_DIRECT || control_mode == STABILIZE) {

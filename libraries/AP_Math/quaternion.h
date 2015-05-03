@@ -80,5 +80,13 @@ public:
 #endif
         return _v[i];
     }
+
+    ////////////////////////// Quaternion Stuff added //////////////////////////
+    //Define a function qerror that returns error Quaternion. A Quaternion must be passed into this function before error Quaternion can be calculated. 
+    Quaternion qerror (Quaternion);
+    /////////////////////////////////////////////////////////////////////////////
+
 };
+
+
 #endif // QUATERNION_H

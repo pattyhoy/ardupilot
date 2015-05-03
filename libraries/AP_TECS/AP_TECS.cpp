@@ -324,7 +324,10 @@ void AP_TECS::_detect_underspeed(void)
 
 void AP_TECS::_update_energies(void) 
 {
-    // Calculate specific energy demands
+    //SPE is Potential Energy
+	//SKE is Kinetic Energy
+	
+	// Calculate specific energy demands
     _SPE_dem = _hgt_dem_adj * GRAVITY_MSS;
     _SKE_dem = 0.5f * _TAS_dem_adj * _TAS_dem_adj;
 
@@ -357,7 +360,7 @@ void AP_TECS::_update_throttle(void)
     // If underspeed condition is set, then demand full throttle
     if (_underspeed)
     {
-        _throttle_dem_unc = 1.0f;
+        _throttle_dem_unc = 1.0f; //what is _throttle_dem_unc?  _unc??
     }
     else
     {
@@ -412,7 +415,7 @@ void AP_TECS::_update_throttle(void)
 	    if (_ahrs.airspeed_sensor_enabled()) {
 	        _throttle_dem = _throttle_dem + _integ6_state;
 	    } else {
- 	       _throttle_dem = ff_throttle;
+ 	       _throttle_dem = ff_throttle; // THIS IS IMPORTANT
 	    }
     }
 

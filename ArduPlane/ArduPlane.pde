@@ -570,6 +570,56 @@ static int32_t nav_roll_cd;
 // The instantaneous desired pitch angle.  Hundredths of a degree
 static int32_t nav_pitch_cd;
 
+
+
+
+///////////// Quaternion stuff I added ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+Quaternion qcurrent;
+double vert = sqrt(2)/2;
+Quaternion qcommand;
+Quaternion qerr;
+float roll_error=0, pitch_error=0, yaw_error=0;
+float * _roll_error = &roll_error; 
+float * _pitch_error = &pitch_error;
+float * _yaw_error = &yaw_error;
+float roll_error_deg=0, pitch_error_deg=0, yaw_error_deg=0;
+int32_t roll_error_centdeg=0, pitch_error_centdeg=0, yaw_error_centdeg=0;
+static int32_t roll_PID_input=0; 
+static int32_t pitch_PID_input=0; 
+static int32_t yaw_PID_input=0;
+float hover_yaw_hold, hover_yaw_hold_deg;
+
+// throttle flags for hover divergence
+//static bool diverge_roll;
+static bool diverge_pitch = false;
+static bool diverge_yaw = false;
+static uint32_t last_t_pitch;
+static uint32_t last_t_yaw;
+
+// variables needed for sink rate calculation
+static int32_t sink_rate;
+static int32_t last_alt;
+static uint32_t last_t_alt;
+static float last_derivative_alt;
+
+//variable needed for reference model
+static float pitch_final; // desired pitch angle at end of manuever
+static float pitch_init; // initial pitch angle at start of manuever
+static float pitch_desired; // current desired pitch angle
+static float ZETA = 1; // damping ratio, needs to be greater than 0
+static float OMEGA_N = 1.8/1; // natural frequency
+static uint32_t t_start_hover; // time at start of hover manuever
+
+
+static int32_t pitch_desired_centdeg;
+static int32_t roll_desired_centdeg;
+static int32_t hover_yaw_hold_cd;
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Waypoint distances
 ////////////////////////////////////////////////////////////////////////////////
@@ -806,6 +856,16 @@ static void ahrs_update()
 #endif
 
     ahrs.update();
+    
+    ///////////// Quaternion stuff I added ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    	// Convert current euler angles to quaternion
+    	qcurrent.from_euler(ahrs.roll, ahrs.pitch, ahrs.yaw);
+    
+    	//Note that ahrs.roll is in degrees whereas ahrs.roll_sensor is in centidegrees.
+    	//Is using degress for quaternion calc and then converting to centidegrees
+    	// less accurate? Perhaps... Investigate later
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
 
     if (should_log(MASK_LOG_ATTITUDE_FAST))
         Log_Write_Attitude();
@@ -1074,16 +1134,7 @@ static void update_GPS_10Hz(void)
                 }
                 ground_start_count = 0;
             }
-        }
-
-        // see if we've breached the geo-fence
-        geofence_check(false);
-
-#if CAMERA == ENABLED
-        if (camera.update_location(current_loc) == true) {
-            do_take_picture();
-        }
-#endif        
+        }     
 
         if (!arming.is_armed() ||
             hal.util->safety_switch_state() == AP_HAL::Util::SAFETY_DISARMED) {
@@ -1315,6 +1366,36 @@ static void update_flight_mode(void)
     case INITIALISING:
         // handled elsewhere
         break;
+
+        
+ //////////////////////////////////// I added this ////////////////////////////////////////////////////////////////////////////////////////  
+	case HOVER_PID_START:
+	case HOVER_PID_FINISH:
+
+	if (control_mode == HOVER_PID_START) {
+		pitch_desired = (PI/24);
+	} else if (control_mode == HOVER_PID_FINISH) {
+		pitch_desired = (PI/2);
+	} else {
+		pitch_desired = 0;
+	}
+	
+		//Set the nav_pitch_cd variable that is used in 
+		//the stabilize function (attitude.pde) to the desired pitch
+		pitch_desired_centdeg =  int32_t (pitch_desired*(180/PI)*100);	
+		nav_pitch_cd = pitch_desired_centdeg;
+		//Set the nav_roll_cd variable that is used in 
+		//the stabilize function (attitude.pde) to zero
+		nav_roll_cd = 0;
+		
+		//YAW????
+		
+		//calculate the throttle required
+		calc_throttle();
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        
     }
 }
 
@@ -1353,6 +1434,8 @@ static void update_navigation()
     case FLY_BY_WIRE_A:
     case FLY_BY_WIRE_B:
     case CIRCLE:
+    case HOVER_PID_START:
+    case HOVER_PID_FINISH:
         // nothing to do
         break;
     }
@@ -1372,6 +1455,12 @@ static void update_alt()
         // alt_MSL centimeters (centimeters)
         current_loc.alt = g_gps->altitude_cm;
     }
+    
+	//////////////////////////////////////////////////////////////////////////I added this//////////////////////////////////////////////////////////////
+	// calculate current sink rate
+	// calc_sink_rate();
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
 
     geofence_check(true);
 
