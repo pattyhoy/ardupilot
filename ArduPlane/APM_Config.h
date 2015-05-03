@@ -20,4 +20,9 @@
  *  // 2. HIL_MODE_SENSORS: full sensor simulation
  *
  */
+
 #define GPS_PROTOCOL  GPS_PROTOCOL_NONE
+#define CAMERA DISABLED
+#define CLI_ENABLED DISABLED
+#Define MOUNT DISABLED
+
